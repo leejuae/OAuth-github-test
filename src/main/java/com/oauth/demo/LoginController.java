@@ -73,39 +73,112 @@ public class LoginController {
         ).getBody().getName();
     }
 
+//    public String getUserCommits(String userName, String accessToken) {
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setBearerAuth(accessToken);
+//        HttpEntity<Void> request = new HttpEntity<>(headers);
+//
+//        // 모든 리포지토리 목록을 가져옵니다.
+//        ResponseEntity<Repository[]> reposResponse = restTemplate.exchange(
+//            "https://api.github.com/user/repos?visibility=all&affiliation=owner,collaborator",
+//            HttpMethod.GET,
+//            request,
+//            Repository[].class
+//        );
+//
+//        // 날짜별 커밋 횟수를 저장할 맵 (TreeMap을 사용하여 날짜별로 정렬)
+//        Map<LocalDate, Integer> commitCountByDate = new TreeMap<>();
+////        for (Repository repo : reposResponse.getBody()) {
+////            String repoName = repo.getName();
+////            ResponseEntity<Commit[]> commitsResponse = restTemplate.exchange(
+////                    COMMITS_URL,
+////                    HttpMethod.GET,
+////                    request,
+////                    Commit[].class,
+////                    userName, repoName    // 이부분 이렇게 처리하면 에러뜸, 하나의 리스트로 처리
+////            );
+////
+////            for (Commit commit : commitsResponse.getBody()) {
+////                allCommits.append("[").append(repoName).append("] ")
+////                        .append(commit.getCommit().getMessage()).append("\n");
+////            }
+////
+////            System.out.println(allCommits);
+////        }
+//        // 각 리포지토리의 커밋 내역을 가져옵니다.
+//        // 각 리포지토리의 커밋 내역을 가져옵니다.
+//        for (Repository repo : reposResponse.getBody()) {
+//            String repoName = repo.getName();
+//            String ownerName = repo.getOwner().getLogin();
+//            Map<String, String> uriVariables = new HashMap<>();
+//            uriVariables.put("owner", ownerName);
+//            uriVariables.put("repo", repoName);
+//
+//            int page = 1;
+//            boolean hasMoreCommits = true;
+//
+//            while (hasMoreCommits) {
+//                try {
+//                    ResponseEntity<Commit[]> commitsResponse = restTemplate.exchange(
+//                        COMMITS_URL + "?page=" + page + "&per_page=100",
+//                        HttpMethod.GET,
+//                        request,
+//                        Commit[].class,
+//                        uriVariables
+//                    );
+//
+//                    Commit[] commits = commitsResponse.getBody();
+//                    if (commits == null || commits.length == 0) {
+//                        hasMoreCommits = false;
+//                    } else {
+//                        for (Commit commit : commits) {
+//                            String commitDateStr = commit.getCommit().getCommitter().getDate();
+//                            OffsetDateTime commitDateTime = OffsetDateTime.parse(commitDateStr);
+//                            LocalDate commitDate = commitDateTime.toLocalDate();
+//                            commitCountByDate.put(commitDate, commitCountByDate.getOrDefault(commitDate, 0) + 1);
+//                        }
+//                        page++;
+//                    }
+//                    Thread.sleep(1000);
+//                } catch (HttpClientErrorException e) {
+//                    if (e.getStatusCode() == HttpStatus.CONFLICT && e.getResponseBodyAsString().contains("Git Repository is empty")) {
+//                        System.err.println("Repository is empty: " + repoName);
+//                    } else {
+//                        System.err.println("Error fetching commits for repository " + repoName + ": " + e.getMessage());
+//                    }
+//                    hasMoreCommits = false;
+//                } catch (InterruptedException e) {
+//                    Thread.currentThread().interrupt();
+//                }
+//            }
+//
+//
+//        }
+//
+//        // 리포지토리 정보 및 커밋 데이터를 포함한 결과 생성
+//        StringBuilder result = new StringBuilder();
+//        for (Map.Entry<LocalDate, Integer> entry : commitCountByDate.entrySet()) {
+//            result.append(entry.getKey()).append(": ").append(entry.getValue()).append(" commits\n");
+//        }
+//        return result.toString();
+//    }
+
     public String getUserCommits(String userName, String accessToken) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
         HttpEntity<Void> request = new HttpEntity<>(headers);
 
-        // 모든 리포지토리 목록을 가져옵니다.
+        // 모든 리포지토리 목록을 가져옴 (visibility=all과 affiliation=owner,collaborator 추가)
         ResponseEntity<Repository[]> reposResponse = restTemplate.exchange(
-            "https://api.github.com/user/repos?visibility=all&affiliation=owner,collaborator",
+            "https://api.github.com/user/repos?visibility=all&affiliation=owner,collaborator", // private 리포지토리 포함
             HttpMethod.GET,
             request,
             Repository[].class
         );
 
+
         // 날짜별 커밋 횟수를 저장할 맵 (TreeMap을 사용하여 날짜별로 정렬)
         Map<LocalDate, Integer> commitCountByDate = new TreeMap<>();
-//        for (Repository repo : reposResponse.getBody()) {
-//            String repoName = repo.getName();
-//            ResponseEntity<Commit[]> commitsResponse = restTemplate.exchange(
-//                    COMMITS_URL,
-//                    HttpMethod.GET,
-//                    request,
-//                    Commit[].class,
-//                    userName, repoName    // 이부분 이렇게 처리하면 에러뜸, 하나의 리스트로 처리
-//            );
-//
-//            for (Commit commit : commitsResponse.getBody()) {
-//                allCommits.append("[").append(repoName).append("] ")
-//                        .append(commit.getCommit().getMessage()).append("\n");
-//            }
-//
-//            System.out.println(allCommits);
-//        }
-        // 각 리포지토리의 커밋 내역을 가져옵니다.
         // 각 리포지토리의 커밋 내역을 가져옵니다.
         for (Repository repo : reposResponse.getBody()) {
             String repoName = repo.getName();
@@ -139,6 +212,7 @@ public class LoginController {
                         }
                         page++;
                     }
+                    // 요청 간 딜레이 추가 (rate limit 대응)
                     Thread.sleep(1000);
                 } catch (HttpClientErrorException e) {
                     if (e.getStatusCode() == HttpStatus.CONFLICT && e.getResponseBodyAsString().contains("Git Repository is empty")) {
@@ -151,17 +225,16 @@ public class LoginController {
                     Thread.currentThread().interrupt();
                 }
             }
-
-
         }
 
-        // 리포지토리 정보 및 커밋 데이터를 포함한 결과 생성
         StringBuilder result = new StringBuilder();
         for (Map.Entry<LocalDate, Integer> entry : commitCountByDate.entrySet()) {
             result.append(entry.getKey()).append(": ").append(entry.getValue()).append(" commits\n");
         }
+
         return result.toString();
     }
+
 
     @NoArgsConstructor
     @Getter
